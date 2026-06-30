@@ -1,0 +1,21 @@
+# Save the output of this file and use kubectl create -f to import
+# it into Kubernetes.
+#
+# Created with podman-5.8.2
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    io.kubernetes.cri-o.SandboxID/my-web: e4619ea34bf159297778921c0170a7c03d97a84e33719c35b0a811b02093d2ca
+  creationTimestamp: "2026-06-30T10:01:45Z"
+  labels:
+    app: my-apache-pod
+  name: my-apache-pod
+spec:
+  containers:
+  - image: docker.io/library/httpd:latest
+    name: my-web
+    ports:
+    - containerPort: 80
+      hostPort: 8080
+
