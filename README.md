@@ -1,5 +1,5 @@
 ### web-k8s-project
-
+```
     1  podman pod create --name my-apache-pod -p 8080:80
     2  podman ps
     3  podman pod ps
@@ -48,3 +48,4 @@
    46  cd my-k8s/
    47  ll
    48  sudo mv my-web-project/ web-project/
+```
