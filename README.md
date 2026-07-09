@@ -1,4 +1,10 @@
 ### web-k8s-project   test
+專案位置:
+rocky 10-rocky k8s
+```
+benjamin@localhost:~/my-k8s/web-k8s-proj$ 
+```
+---
 ```
     1  podman pod create --name my-apache-pod -p 8080:80
     2  podman ps
