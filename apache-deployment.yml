@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+# Deployment 屬於 apps 組，API 版本固定使用 v1
+
+kind: Deployment
+# 宣告資源類型為 Deployment
+
+metadata:
+  name: apache-deployment
+  # 這個 Deployment 的名稱
+  labels:
+    app: my-apache-app
+
+spec:
+  replicas: 2
+  # 副本數：告訴 K8s 無論如何都要維持「2 個」相同的 Apache Pod 同時運行
+
+  selector:
+    matchLabels:
+      app: my-web-server
+      # 關鍵設定：告訴 Deployment 它要去管理哪些帶有 app: my-web-server 標籤的 Pod
+
+  template:
+    # 這裡開始定義「Pod 的範本」（也就是被大量生產的 Pod 長什麼樣子）
+    metadata:
+      labels:
+        app: my-web-server
+        # 這個標籤必須跟上面的 matchLabels 完全一致
+    spec:
+      containers:
+      - name: my-apache-container
+        image: docker.io/library/httpd:latest
+        ports:
+        - containerPort: 80
