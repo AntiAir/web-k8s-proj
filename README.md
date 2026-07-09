@@ -211,4 +211,133 @@ git add apache-pod.yml
 git commit -m "Migrate cluster runtime from Podman (Rocky) to Docker (Ubuntu)"
 git push origin main
 ```
-# Test SSH
+---
+
+---
+
+## 📈 進階演進：從單一 Pod 升級至企業級 Deployment
+
+單一 Pod 壞掉就無法自動恢復。改用 **Deployment** 可以達成**自動滿血復活（Self-healing）**與**水平擴容**。
+
+### 1. 建立 `apache-deployment.yml`
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apache-deployment
+  labels:
+    app: my-apache-app
+spec:
+  replicas: 2 # 無論如何都要維持 2 個 Pod 同時運行做備援
+  selector:
+    matchLabels:
+      app: my-web-server # 監控並對接帶有此標籤的 Pod
+  template:
+    metadata:
+      labels:
+        app: my-web-server # 必須與上方 matchLabels 完全一致
+    spec:
+      containers:
+      - name: my-apache-container
+        image: docker.io/library/httpd:latest
+        ports:
+        - containerPort: 80
+```
+
+### 2. 部署 Deployment 指令
+```bash
+# 部署全新升級的 Deployment
+kubectl apply -f apache-deployment.yml
+
+# 查看 K8s 自動生產的兩個複製品 Pod
+kubectl get pods
+```
+
+---
+
+## 🛡 基礎建設：建立 Service 負責負載平衡與單一入口
+
+為了讓流量能平均分流到多個備援 Pod，且不因 Pod 重建換 IP 而斷線，必須架設 **Service**。
+
+### 1. 建立 `apache-service.yml`
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache-service
+spec:
+  type: NodePort
+  selector:
+    app: my-web-server # 最核心：自動對接所有帶有此標籤的 Pod
+  ports:
+  - protocol: TCP
+    port: 80         # Service 叢集內部監聽的 Port
+    targetPort: 80   # 流量轉發進容器內部的 Port
+    nodePort: 30080  # 指定綁定實體機的對外 Port
+```
+
+### 2. 部署 Service 並打通本機通道
+```bash
+# 部署 Service
+kubectl apply -f apache-service.yml
+
+# 對接 Service 到 Ubuntu 本機的 Port 8081 (若 8080 被佔用)
+kubectl port-forward svc/apache-service 8081:80
+```
+
+---
+
+## 💥 實戰驗證：高可用性故障轉移 (Failover) 測試
+
+驗證當其中一台網頁伺服器（Pod）意外掛掉時，網站是否能維持不中斷。
+
+### 1. 啟動無間斷連線測試 (視窗 A)
+```bash
+while true; do curl -s --connect-timeout 1 http://localhost:8081 | grep -o "It works!" || echo "斷線了！"; sleep 0.5; done
+```
+
+### 2. 狠心槍斃其中一個 Pod (視窗 B)
+```bash
+# 查出 Pod 名字
+kubectl get pods
+
+# 手動刪除其中一個 Pod
+kubectl delete pod <你的其中一個Pod名稱>
+```
+
+### 3. 測試結果觀察
+在刪除 Pod 的瞬間，**視窗 A 的連線測試完全沒有中斷**，依然源源不絕地噴出 `"It works!"`。
+*   **原理**：K8s Service 在毫秒等級內感應到 Pod 陣亡，並將 100% 流量導向另一個活著的 Pod。
+*   **自動復活**：再度輸入 `kubectl get pods` 會發現 Deployment 早就自動生出一個全新 Pod 來補位。
+
+---
+
+## ⚡️ 實用 K8s 密技：一秒線上擴容 (Scaling)
+如果突然遇到突發大流量，不用改 YAML，直接下一行指令就能將網頁伺服器瞬間增殖：
+```bash
+# 瞬間擴容至 5 台網頁伺服器
+kubectl scale deployment/apache-deployment --replicas=5
+
+# 查看增殖結果
+kubectl get pods
+```
+
+---
+
+## 🔒 實用 Git 密技：設定 SSH 免密碼快速推送
+在 Ubuntu 上產生 SSH 金鑰並綁定至 GitHub，以後 `git push` 再也不需要輸入帳號與 Token 密碼。
+```bash
+# 1. 產生金鑰 (連按 3 次 Enter 即可)
+ssh-keygen -t ed25519 -C "你的GitHub註冊信箱"
+
+# 2. 印出公鑰內容並複製，貼到 GitHub 網頁設定 (Settings -> SSH keys)
+cat ~/.ssh/id_ed25519.pub
+
+# 3. 將原本專案的 HTTPS 網址改為 SSH 格式
+git remote set-url origin git@github.com:AntiAir/web-k8s-proj.git
+
+# 4. 之後修改檔案就能秒推，享受極速體驗！
+git add .
+git commit -m "Update notes for Deployment and Service"
+git push origin main
+```
